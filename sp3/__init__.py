@@ -159,6 +159,7 @@ def narrowed_records_to_piecewise_polynomial(
     if len(records) < window * 2 + 1:
         raise Exception("insufficient number of records")
     record_position = numpy.array(tuple(record.position for record in records))
+    record_clock = numpy.array(tuple(record.clock for record in records))
     relative_record_time = total_seconds(
         numpy.array(tuple(record.time - records[0].time for record in records))
     )
@@ -212,6 +213,7 @@ def narrowed_records_to_piecewise_polynomial(
         velocity_coefficients[0] += velocity_mean
     else:
         velocity_coefficients = numpy.polynomial.polynomial.polyder(coefficients)
+    
     return PiecewisePolynomial(
         minimum_time=records[window].time,
         maximum_time=records[-window].time,
@@ -220,7 +222,7 @@ def narrowed_records_to_piecewise_polynomial(
         begin=begin,
         coefficients=coefficients,
         velocity_coefficients=velocity_coefficients,
-    )
+    ), records
 
 
 def records_to_piecewise_polynomial(
@@ -350,9 +352,11 @@ def itrs(
     download_directory: typing.Union[str, bytes, pathlib.Path],
     window: int = 5,
     degree: int = 10,
+    interpolate_clock_drift = False
 ) -> astropy.coordinates.ITRS:
     begin, end = obstime_to_begin_and_end(obstime)
-    return records_to_piecewise_polynomial(
+    
+    interpolation, records = records_to_piecewise_polynomial(
         records=load(
             id=id,
             begin=begin,
@@ -365,7 +369,18 @@ def itrs(
         end=end,
         window=window,
         degree=degree,
-    )(obstime)
+    )
+    
+    if not interpolate_clock_drift:
+        return interpolation(obstime)
+    else:
+        begin_time = records[0].time
+        ref_stamps = [(x.time - begin_time).total_seconds() for x in records]
+        ref_clocks = [x.clock for x in records]
+        rel_stamps = [(t - begin_time).total_seconds() for t in obstime.to_datetime(timezone=datetime.timezone.utc)]
+        clocks = scipy.interpolate.interp1d(ref_stamps, ref_clocks, kind='linear')(rel_stamps)
+
+        return interpolation(obstime), clocks
 
 
 def altaz(
