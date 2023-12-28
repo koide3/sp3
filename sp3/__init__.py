@@ -352,7 +352,7 @@ def itrs(
     download_directory: typing.Union[str, bytes, pathlib.Path],
     window: int = 5,
     degree: int = 10,
-    interpolate_clock_drift = False
+    interpolate_clock_bias = False
 ) -> astropy.coordinates.ITRS:
     begin, end = obstime_to_begin_and_end(obstime)
     
@@ -371,7 +371,7 @@ def itrs(
         degree=degree,
     )
     
-    if not interpolate_clock_drift:
+    if not interpolate_clock_bias:
         return interpolation(obstime)
     else:
         begin_time = records[0].time
@@ -379,7 +379,6 @@ def itrs(
         ref_clocks = [x.clock for x in records]
         rel_stamps = [(t - begin_time).total_seconds() for t in obstime.to_datetime(timezone=datetime.timezone.utc)]
         clocks = scipy.interpolate.interp1d(ref_stamps, ref_clocks, kind='linear')(rel_stamps)
-
         return interpolation(obstime), clocks
 
 
