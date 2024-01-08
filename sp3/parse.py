@@ -6,6 +6,9 @@ import math
 import os
 import re
 import typing
+import gzip
+import time
+import pickle
 from . import timesystem
 
 
@@ -496,8 +499,19 @@ class Product:
 
     @classmethod
     def from_file(cls, path: typing.Union[str, bytes, os.PathLike]):
+        pickle_path = path.with_suffix('.pickle.gz')
+        if os.path.exists(pickle_path):
+            with gzip.open(pickle_path, 'rb') as f:
+                prod = pickle.load(f)
+                return prod
+
         with open(path, "rb") as file:
-            return Product.from_bytes(file.read())
+            prod = Product.from_bytes(file.read())
+
+            with gzip.open(pickle_path, 'wb') as pickle_file:
+                pickle.dump(prod, pickle_file)
+
+            return prod
 
     def satellite_with_id(self, sp3_id: bytes):
         for satellite in self.satellites:
