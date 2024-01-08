@@ -261,6 +261,63 @@ def records_to_piecewise_polynomial(
         degree=degree,
     )
 
+parallel_download = False
+try:
+    import pathos
+    parallel_download = True
+except:
+    logging.debug('no parallel download')
+
+def predownload(
+    id: Id,
+    begin: datetime.datetime,
+    end: datetime.datetime,
+    download_directory: typing.Union[str, bytes, pathlib.Path],
+    window: int,
+    force_download: bool = False,
+):
+    if isinstance(id, Sp3Id):
+        sp3_id = id.value
+    elif isinstance(id, NoradId):
+        sp3_id = satellite.norad_to_satellite[id.value].sp3
+    else:
+        raise Exception(f"unsupported id type {id.__class__}")
+    assert begin.tzinfo == datetime.timezone.utc
+    assert end.tzinfo == datetime.timezone.utc
+    assert begin < end
+    if isinstance(download_directory, bytes):
+        download_directory = pathlib.Path(download_directory.decode())
+    elif isinstance(download_directory, str):
+        download_directory = pathlib.Path(download_directory)
+
+    for candidate_provider in provider.find_providers_of(sp3_id):
+        offset = 0.0
+
+        try:
+            def task(offset):
+                candidate_provider.download(
+                            time=candidate_provider.time_system.offset_seconds(
+                                begin, offset
+                            ),
+                            download_directory=download_directory,
+                            force=force_download,
+                        )
+            
+
+            offsets = [offset - 86400, offset, offset + 86400]
+
+            if parallel_download:
+                p = pathos.multiprocessing.ProcessingPool()
+                p.map(task, offsets)
+            else:
+                map(task, offsets)
+        except requests.exceptions.HTTPError as error:
+                if error.response.status_code == 404:
+                    logging.warning(f'"{error.request.url}" returned error 404')
+                    break
+                raise error
+
+        break
 
 def load(
     id: Id,
@@ -358,7 +415,7 @@ def itrs(
     begin, end = obstime_to_begin_and_end(obstime)
 
     if dryrun:
-        return load(
+        return predownload(
             id=id,
             begin=begin,
             end=end,
