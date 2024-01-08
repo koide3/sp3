@@ -14,6 +14,7 @@ import pathlib
 import requests
 import scipy.optimize
 import typing
+import os
 from . import provider as provider
 from . import satellite as satellite
 from . import timesystem as timesystem
@@ -295,13 +296,18 @@ def predownload(
 
         try:
             def task(offset):
-                candidate_provider.download(
+                filename = candidate_provider.download(
                             time=candidate_provider.time_system.offset_seconds(
                                 begin, offset
                             ),
                             download_directory=download_directory,
                             force=force_download,
                         )
+                
+                pickle_path = str(filename) + '.pickle.gz'
+                if not os.path.exists(pickle_path):
+                    logging.debug('preloading {}'.format(pickle_path))
+                    Product.from_file(filename)
             
 
             offsets = [offset - 86400, offset, offset + 86400]
