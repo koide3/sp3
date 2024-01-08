@@ -352,9 +352,20 @@ def itrs(
     download_directory: typing.Union[str, bytes, pathlib.Path],
     window: int = 5,
     degree: int = 10,
-    interpolate_clock_bias = False
+    interpolate_clock_bias = False,
+    dryrun = False
 ) -> astropy.coordinates.ITRS:
     begin, end = obstime_to_begin_and_end(obstime)
+
+    if dryrun:
+        return load(
+            id=id,
+            begin=begin,
+            end=end,
+            window=window,
+            download_directory=download_directory,
+            force_download=False,
+        )
     
     interpolation, records = records_to_piecewise_polynomial(
         records=load(

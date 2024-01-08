@@ -499,7 +499,7 @@ class Product:
 
     @classmethod
     def from_file(cls, path: typing.Union[str, bytes, os.PathLike]):
-        pickle_path = path.with_suffix('.pickle.gz')
+        pickle_path = str(path) + '.pickle.gz'
         if os.path.exists(pickle_path):
             with gzip.open(pickle_path, 'rb') as f:
                 prod = pickle.load(f)
